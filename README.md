@@ -36,7 +36,7 @@ npm run dev
    - `VITE_FIREBASE_MESSAGING_SENDER_ID`
    - `VITE_FIREBASE_APP_ID`
    - `VITE_APP_ID` (اختياري — افتراضي `focus-flow-app`)
-   - `VITE_GEMINI_API_KEY` (اختياري — لميزة محلل Gemini)
+   - `GEMINI_API_KEY` (اختياري، **بدون** بادئة `VITE_` — يُستخدم خادمياً عبر `/api/ai` ولا يصل المتصفح)
 
 ## Firebase
 

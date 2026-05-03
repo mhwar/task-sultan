@@ -172,12 +172,6 @@ const App = () => {
   const fetchAIAnalysis = async () => {
     setIsAnalyzing(true);
     setShowAiModal(true);
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
-    if (!apiKey) {
-      setAiAnalysis('لتفعيل المحلل، أضف VITE_GEMINI_API_KEY في إعدادات Netlify ثم أعد النشر.');
-      setIsAnalyzing(false);
-      return;
-    }
     const contextData = {
       weeklyGoal,
       projects: foundations,
@@ -186,16 +180,17 @@ const App = () => {
     const prompt = `أنت مستشار استراتيجي. بناءً على هذه المشاريع (تراحم، محور، بعد التمكين، تطبيق الحساسية، بوصلة الأعمال، والجانب الشخصي)، حلل التوزيع الحالي وقدم نصيحة ذهبية لليوم باللغة العربية. البيانات: ${JSON.stringify(contextData)}`;
 
     try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-        }
-      );
+      const response = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, model: 'gemini-2.5-flash' }),
+      });
       const result = await response.json();
-      setAiAnalysis(result.candidates?.[0]?.content?.parts?.[0]?.text || 'فشل التحليل.');
+      if (!response.ok) {
+        setAiAnalysis(result.error || 'فشل التحليل.');
+      } else {
+        setAiAnalysis(result.text || 'لم يصل رد من النموذج.');
+      }
     } catch {
       setAiAnalysis('خطأ في الاتصال بالذكاء الاصطناعي.');
     } finally {
