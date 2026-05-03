@@ -8,6 +8,45 @@ import {
 
 const GEMINI_KEY_STORAGE = 'task-sultan:gemini-key';
 
+const extractDominantColor = (canvas) => {
+  try {
+    const ctx = canvas.getContext('2d');
+    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const buckets = new Map();
+
+    for (let i = 0; i < data.length; i += 4) {
+      const a = data[i + 3];
+      if (a < 200) continue;
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      if (r > 230 && g > 230 && b > 230) continue;
+      if (r < 25 && g < 25 && b < 25) continue;
+      if (Math.max(r, g, b) - Math.min(r, g, b) < 25) continue;
+
+      const q = (v) => Math.round(v / 24) * 24;
+      const key = `${q(r)},${q(g)},${q(b)}`;
+      buckets.set(key, (buckets.get(key) || 0) + 1);
+    }
+
+    if (buckets.size === 0) return null;
+
+    let bestKey = null;
+    let bestCount = 0;
+    for (const [key, count] of buckets) {
+      if (count > bestCount) {
+        bestKey = key;
+        bestCount = count;
+      }
+    }
+
+    const [r, g, b] = bestKey.split(',').map(Number);
+    return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
+  } catch {
+    return null;
+  }
+};
+
 const readImageAsDataUrl = (file, maxSize = 256) =>
   new Promise((resolve, reject) => {
     if (!file.type.startsWith('image/')) {
@@ -25,11 +64,14 @@ const readImageAsDataUrl = (file, maxSize = 256) =>
         canvas.height = Math.max(1, Math.round(img.height * ratio));
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const color = extractDominantColor(canvas);
+        let dataUrl;
         try {
-          resolve(canvas.toDataURL('image/webp', 0.85));
+          dataUrl = canvas.toDataURL('image/webp', 0.85);
         } catch {
-          resolve(canvas.toDataURL('image/png'));
+          dataUrl = canvas.toDataURL('image/png');
         }
+        resolve({ dataUrl, color });
       };
       img.onerror = () => reject(new Error('صورة غير صالحة'));
       img.src = reader.result;
@@ -96,8 +138,12 @@ const App = () => {
     setLogoUploadError('');
     setLogoUploading(true);
     try {
-      const dataUrl = await readImageAsDataUrl(file, 256);
-      setFoundationForm((f) => ({ ...f, logoUrl: dataUrl }));
+      const { dataUrl, color } = await readImageAsDataUrl(file, 256);
+      setFoundationForm((f) => ({
+        ...f,
+        logoUrl: dataUrl,
+        ...(color ? { color } : {}),
+      }));
     } catch (err) {
       setLogoUploadError(err.message || 'تعذر تحميل الصورة');
     } finally {
@@ -842,8 +888,12 @@ const App = () => {
                           />
                           <div className="flex-1 min-w-0">
                             <div className="text-xs font-bold text-slate-700">شعار محمّل</div>
-                            <div className="text-[10px] text-slate-400 mt-0.5">
-                              تم ضغط الصورة تلقائياً
+                            <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1.5">
+                              <span
+                                className="inline-block w-2.5 h-2.5 rounded-full border border-white shadow-sm"
+                                style={{ backgroundColor: foundationForm.color }}
+                              />
+                              لون المشروع التُقط من الشعار
                             </div>
                           </div>
                           <label
