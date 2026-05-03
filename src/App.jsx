@@ -1,15 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  collection, addDoc, onSnapshot,
-  updateDoc, deleteDoc, doc, query, getDocs,
-} from 'firebase/firestore';
-import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import {
   Plus, CheckCircle2, Target, BarChart3, Briefcase, Layers,
   ShieldCheck, Settings, Rocket, User, HardHat, TrendingUp,
-  Edit3, X, BrainCircuit, PenTool, Image as ImageIcon, Heart,
+  Edit3, X, BrainCircuit, PenTool, Image as ImageIcon, Heart, Cloud, CloudOff,
 } from 'lucide-react';
-import { auth, db, appId } from './firebase.js';
+import { initAuth, subscribe, getAll, add, update, remove, useFirebase } from './storage.js';
+
+const initialProjects = [
+  { name: 'تراحم', description: 'الدوام الرسمي - التركيز على المهام المؤسسية والعمل الخيري.', type: 'job', weeklyHours: 40, color: '#10B981', icon: 'Briefcase', incomePotential: 8, strategicValue: 6, effortLevel: 7 },
+  { name: 'شركة محور', description: 'إدارة وتطوير العمليات في الشركة والتركيز على النمو المستدام.', type: 'project', weeklyHours: 15, color: '#3B82F6', icon: 'HardHat', incomePotential: 7, strategicValue: 8, effortLevel: 6 },
+  { name: 'بعد التمكين', description: 'مبادرة تمكين ودعم - التركيز على الأثر المجتمعي وبناء الشراكات.', type: 'project', weeklyHours: 10, color: '#0EA5E9', icon: 'Target', incomePotential: 5, strategicValue: 9, effortLevel: 5 },
+  { name: 'تطبيق الحساسية', description: 'ستارت اب تقني للرعاية الصحية - تطوير التطبيق والتسويق.', type: 'startup', weeklyHours: 10, color: '#F59E0B', icon: 'Rocket', incomePotential: 9, strategicValue: 10, effortLevel: 8 },
+  { name: 'بوصلة الأعمال', description: 'شركة إدارة محتوى وتسويق - صناعة الهوية الرقمية للعملاء.', type: 'project', weeklyHours: 12, color: '#8B5CF6', icon: 'PenTool', incomePotential: 7, strategicValue: 7, effortLevel: 5 },
+  { name: 'شخصي', description: 'تطوير الذات، الصحة، والراحة - المهام التي تعيد بناء طاقتك.', type: 'personal', weeklyHours: 20, color: '#F43F5E', icon: 'User', incomePotential: 0, strategicValue: 10, effortLevel: 4 },
+];
 
 const App = () => {
   const [user, setUser] = useState(null);
@@ -52,67 +56,50 @@ const App = () => {
   });
 
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        await signInAnonymously(auth);
-      } catch {
-        setSyncStatus('error');
-      }
-    };
-    initAuth();
-    const unsubscribe = onAuthStateChanged(auth, setUser);
-    return () => unsubscribe();
+    const unsub = initAuth(setUser);
+    return () => unsub();
   }, []);
-
-  const seedProjects = async (userId) => {
-    const foundationsRef = collection(db, 'artifacts', appId, 'users', userId, 'foundations');
-    const querySnapshot = await getDocs(query(foundationsRef));
-
-    if (querySnapshot.empty) {
-      const initialProjects = [
-        { name: 'تراحم', description: 'الدوام الرسمي - التركيز على المهام المؤسسية والعمل الخيري.', type: 'job', weeklyHours: 40, color: '#10B981', icon: 'Briefcase', incomePotential: 8, strategicValue: 6, effortLevel: 7 },
-        { name: 'شركة محور', description: 'إدارة وتطوير العمليات في الشركة والتركيز على النمو المستدام.', type: 'project', weeklyHours: 15, color: '#3B82F6', icon: 'HardHat', incomePotential: 7, strategicValue: 8, effortLevel: 6 },
-        { name: 'بعد التمكين', description: 'مبادرة تمكين ودعم - التركيز على الأثر المجتمعي وبناء الشراكات.', type: 'project', weeklyHours: 10, color: '#0EA5E9', icon: 'Target', incomePotential: 5, strategicValue: 9, effortLevel: 5 },
-        { name: 'تطبيق الحساسية', description: 'ستارت اب تقني للرعاية الصحية - تطوير التطبيق والتسويق.', type: 'startup', weeklyHours: 10, color: '#F59E0B', icon: 'Rocket', incomePotential: 9, strategicValue: 10, effortLevel: 8 },
-        { name: 'بوصلة الأعمال', description: 'شركة إدارة محتوى وتسويق - صناعة الهوية الرقمية للعملاء.', type: 'project', weeklyHours: 12, color: '#8B5CF6', icon: 'PenTool', incomePotential: 7, strategicValue: 7, effortLevel: 5 },
-        { name: 'شخصي', description: 'تطوير الذات، الصحة، والراحة - المهام التي تعيد بناء طاقتك.', type: 'personal', weeklyHours: 20, color: '#F43F5E', icon: 'User', incomePotential: 0, strategicValue: 10, effortLevel: 4 },
-      ];
-      for (const proj of initialProjects) {
-        await addDoc(foundationsRef, proj);
-      }
-    }
-  };
 
   useEffect(() => {
     if (!user) return;
-    seedProjects(user.uid);
+    let cancelled = false;
+
+    (async () => {
+      const existing = await getAll(user.uid, 'foundations');
+      if (cancelled) return;
+      if (existing.length === 0) {
+        for (const proj of initialProjects) {
+          await add(user.uid, 'foundations', proj);
+        }
+      }
+    })();
+
     setSyncStatus('saving');
-
-    const tasksRef = collection(db, 'artifacts', appId, 'users', user.uid, 'tasks');
-    const unsubTasks = onSnapshot(query(tasksRef), (snapshot) => {
-      setTasks(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+    const unsubTasks = subscribe(user.uid, 'tasks', (items) => {
+      setTasks(items);
       setSyncStatus('synced');
-    }, () => setSyncStatus('error'));
-
-    const foundationsRef = collection(db, 'artifacts', appId, 'users', user.uid, 'foundations');
-    const unsubFoundations = onSnapshot(query(foundationsRef), (snapshot) => {
-      setFoundations(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
+    const unsubFoundations = subscribe(user.uid, 'foundations', (items) => {
+      setFoundations(items);
       setSyncStatus('synced');
-    }, () => setSyncStatus('error'));
+    });
 
-    return () => { unsubTasks(); unsubFoundations(); };
+    return () => {
+      cancelled = true;
+      unsubTasks();
+      unsubFoundations();
+    };
   }, [user]);
 
   const handleAddTask = async () => {
     if (!newTask.title.trim() || !user) return;
     setSyncStatus('saving');
     try {
-      const tasksRef = collection(db, 'artifacts', appId, 'users', user.uid, 'tasks');
-      await addDoc(tasksRef, {
+      await add(user.uid, 'tasks', {
         ...newTask,
         status: 'pending',
         createdAt: new Date().toISOString(),
-        score: (newTask.impact * 2) - newTask.difficulty,
+        score: newTask.impact * 2 - newTask.difficulty,
       });
       setNewTask({
         title: '',
@@ -133,14 +120,11 @@ const App = () => {
     if (!foundationForm.name.trim() || !user) return;
     setSyncStatus('saving');
     try {
+      const { id, ...data } = foundationForm;
       if (editingFoundation?.id) {
-        await updateDoc(
-          doc(db, 'artifacts', appId, 'users', user.uid, 'foundations', editingFoundation.id),
-          foundationForm
-        );
+        await update(user.uid, 'foundations', editingFoundation.id, data);
       } else {
-        const foundationsRef = collection(db, 'artifacts', appId, 'users', user.uid, 'foundations');
-        await addDoc(foundationsRef, foundationForm);
+        await add(user.uid, 'foundations', data);
       }
       setEditingFoundation(null);
     } catch {
@@ -151,9 +135,13 @@ const App = () => {
   const addSubTask = async (taskId) => {
     if (!newSubTask.trim()) return;
     const task = tasks.find((t) => t.id === taskId);
-    const updatedSubtasks = [...(task.subtasks || []), { id: Date.now(), title: newSubTask, done: false }];
-    await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'tasks', taskId), { subtasks: updatedSubtasks });
+    const updatedSubtasks = [
+      ...(task.subtasks || []),
+      { id: Date.now(), title: newSubTask, done: false },
+    ];
+    await update(user.uid, 'tasks', taskId, { subtasks: updatedSubtasks });
     setNewSubTask('');
+    setDecisionModal((d) => (d ? { ...d, subtasks: updatedSubtasks } : d));
   };
 
   const toggleSubTask = async (taskId, subTaskId) => {
@@ -161,26 +149,31 @@ const App = () => {
     const updatedSubtasks = task.subtasks.map((st) =>
       st.id === subTaskId ? { ...st, done: !st.done } : st
     );
-    await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'tasks', taskId), { subtasks: updatedSubtasks });
+    await update(user.uid, 'tasks', taskId, { subtasks: updatedSubtasks });
+    setDecisionModal((d) => (d ? { ...d, subtasks: updatedSubtasks } : d));
   };
 
   const toggleTaskStatus = async (task) => {
     if (!user) return;
-    await updateDoc(
-      doc(db, 'artifacts', appId, 'users', user.uid, 'tasks', task.id),
-      { status: task.status === 'done' ? 'pending' : 'done' }
-    );
+    await update(user.uid, 'tasks', task.id, {
+      status: task.status === 'done' ? 'pending' : 'done',
+    });
   };
 
   const deleteTask = async (id) => {
     if (!user) return;
-    await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'tasks', id));
+    await remove(user.uid, 'tasks', id);
   };
 
   const fetchAIAnalysis = async () => {
     setIsAnalyzing(true);
     setShowAiModal(true);
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+    if (!apiKey) {
+      setAiAnalysis('لتفعيل المحلل، أضف VITE_GEMINI_API_KEY في إعدادات Netlify ثم أعد النشر.');
+      setIsAnalyzing(false);
+      return;
+    }
     const contextData = {
       weeklyGoal,
       projects: foundations,
@@ -246,6 +239,10 @@ const App = () => {
 
   const activeFoundation = foundations.find((f) => f.id === activeContext);
 
+  const modeBadge = useFirebase
+    ? { icon: <Cloud size={11} />, label: 'حفظ سحابي', cls: 'text-emerald-600' }
+    : { icon: <CloudOff size={11} />, label: 'وضع محلي', cls: 'text-amber-600' };
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans selection:bg-blue-100" dir="rtl">
       <nav className="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 px-4 h-16">
@@ -256,8 +253,8 @@ const App = () => {
             </div>
             <div>
               <h1 className="font-bold text-sm">FocusFlow Architect</h1>
-              <span className="text-[10px] text-slate-400 font-bold uppercase">
-                {syncStatus === 'synced' ? 'حفظ سحابي نشط' : 'جاري المزامنة...'}
+              <span className={`text-[10px] font-bold uppercase flex items-center gap-1 ${modeBadge.cls}`}>
+                {modeBadge.icon} {modeBadge.label} · {syncStatus === 'synced' ? 'متزامن' : 'حفظ...'}
               </span>
             </div>
           </div>
@@ -318,7 +315,10 @@ const App = () => {
             {activeFoundation && (
               <div
                 className="p-6 rounded-[2rem] border transition-all relative overflow-hidden"
-                style={{ backgroundColor: activeFoundation.color + '10', borderColor: activeFoundation.color + '40' }}
+                style={{
+                  backgroundColor: activeFoundation.color + '10',
+                  borderColor: activeFoundation.color + '40',
+                }}
               >
                 <div className="flex items-center gap-4 relative z-10">
                   <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center overflow-hidden">
@@ -355,6 +355,11 @@ const App = () => {
             </div>
 
             <div className="space-y-3">
+              {filteredTasks.length === 0 && (
+                <div className="bg-white p-10 rounded-3xl border border-dashed border-slate-200 text-center text-slate-400 text-sm font-bold">
+                  لا توجد مهام بعد. اضغط "إضافة مهمة" للبدء.
+                </div>
+              )}
               {filteredTasks.map((task) => {
                 const foundation = foundations.find((f) => f.id === task.foundationId);
                 return (
@@ -406,7 +411,9 @@ const App = () => {
               </h4>
               <div className="space-y-5">
                 {foundations.map((f) => {
-                  const pending = tasks.filter((t) => t.foundationId === f.id && t.status !== 'done').length;
+                  const pending = tasks.filter(
+                    (t) => t.foundationId === f.id && t.status !== 'done'
+                  ).length;
                   const roi =
                     f.type === 'personal'
                       ? f.strategicValue * 1.5
@@ -430,6 +437,17 @@ const App = () => {
                 })}
               </div>
             </div>
+
+            {!useFirebase && (
+              <div className="bg-amber-50 border border-amber-100 p-6 rounded-3xl">
+                <h5 className="font-bold text-amber-900 text-xs mb-2 flex items-center gap-2">
+                  <CloudOff className="text-amber-500" size={16} /> وضع التخزين المحلي
+                </h5>
+                <p className="text-[11px] text-amber-800 leading-relaxed font-medium opacity-90">
+                  بياناتك محفوظة في هذا المتصفح فقط. لتفعيل المزامنة السحابية، أضف متغيرات Firebase في إعدادات Netlify ثم أعد النشر.
+                </p>
+              </div>
+            )}
 
             <div className="bg-rose-50 border border-rose-100 p-6 rounded-3xl">
               <h5 className="font-bold text-rose-900 text-xs mb-2 flex items-center gap-2">
@@ -560,7 +578,9 @@ const App = () => {
                           className="flex-1 p-4 bg-slate-50 border rounded-2xl font-mono text-xs"
                           placeholder="https://logo-link.com/img.png"
                           value={foundationForm.logoUrl}
-                          onChange={(e) => setFoundationForm({ ...foundationForm, logoUrl: e.target.value })}
+                          onChange={(e) =>
+                            setFoundationForm({ ...foundationForm, logoUrl: e.target.value })
+                          }
                         />
                       </div>
                     </div>
@@ -670,6 +690,7 @@ const App = () => {
                 placeholder="ماذا تنوي إنجازه؟"
                 value={newTask.title}
                 onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
               />
               <select
                 className="w-full p-4 bg-slate-50 border rounded-2xl font-bold"
