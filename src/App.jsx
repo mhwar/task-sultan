@@ -4,7 +4,7 @@ import {
   ShieldCheck, Settings, Rocket, User, HardHat, TrendingUp,
   Edit3, X, BrainCircuit, PenTool, Image as ImageIcon, Heart, Cloud, CloudOff,
 } from 'lucide-react';
-import { initAuth, subscribe, getAll, add, update, remove, useFirebase } from './storage.js';
+import { initAuth, subscribe, getAll, add, update, remove } from './storage.js';
 
 const initialProjects = [
   { name: 'تراحم', description: 'الدوام الرسمي - التركيز على المهام المؤسسية والعمل الخيري.', type: 'job', weeklyHours: 40, color: '#10B981', icon: 'Briefcase', incomePotential: 8, strategicValue: 6, effortLevel: 7 },
@@ -17,6 +17,7 @@ const initialProjects = [
 
 const App = () => {
   const [user, setUser] = useState(null);
+  const [mode, setMode] = useState('local');
   const [tasks, setTasks] = useState([]);
   const [foundations, setFoundations] = useState([]);
   const [weeklyGoal, setWeeklyGoal] = useState('');
@@ -56,7 +57,10 @@ const App = () => {
   });
 
   useEffect(() => {
-    const unsub = initAuth(setUser);
+    const unsub = initAuth((u, m) => {
+      setUser(u);
+      if (m) setMode(m);
+    });
     return () => unsub();
   }, []);
 
@@ -239,9 +243,12 @@ const App = () => {
 
   const activeFoundation = foundations.find((f) => f.id === activeContext);
 
-  const modeBadge = useFirebase
-    ? { icon: <Cloud size={11} />, label: 'حفظ سحابي', cls: 'text-emerald-600' }
-    : { icon: <CloudOff size={11} />, label: 'وضع محلي', cls: 'text-amber-600' };
+  const modeBadge =
+    mode === 'firebase'
+      ? { icon: <Cloud size={11} />, label: 'Firebase', cls: 'text-emerald-600' }
+      : mode === 'netlify'
+      ? { icon: <Cloud size={11} />, label: 'Netlify Blobs', cls: 'text-blue-600' }
+      : { icon: <CloudOff size={11} />, label: 'وضع محلي', cls: 'text-amber-600' };
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans selection:bg-blue-100" dir="rtl">
@@ -438,13 +445,23 @@ const App = () => {
               </div>
             </div>
 
-            {!useFirebase && (
+            {mode === 'local' && (
               <div className="bg-amber-50 border border-amber-100 p-6 rounded-3xl">
                 <h5 className="font-bold text-amber-900 text-xs mb-2 flex items-center gap-2">
                   <CloudOff className="text-amber-500" size={16} /> وضع التخزين المحلي
                 </h5>
                 <p className="text-[11px] text-amber-800 leading-relaxed font-medium opacity-90">
-                  بياناتك محفوظة في هذا المتصفح فقط. لتفعيل المزامنة السحابية، أضف متغيرات Firebase في إعدادات Netlify ثم أعد النشر.
+                  بياناتك محفوظة في هذا المتصفح فقط. على Netlify ستتحول تلقائياً إلى تخزين Netlify Blobs السحابي.
+                </p>
+              </div>
+            )}
+            {mode === 'netlify' && (
+              <div className="bg-blue-50 border border-blue-100 p-6 rounded-3xl">
+                <h5 className="font-bold text-blue-900 text-xs mb-2 flex items-center gap-2">
+                  <Cloud className="text-blue-500" size={16} /> Netlify Blobs
+                </h5>
+                <p className="text-[11px] text-blue-800 leading-relaxed font-medium opacity-90">
+                  بياناتك محفوظة سحابياً عبر Netlify Blobs. هويتك محفوظة في هذا المتصفح — احتفظ بنفس المتصفح للوصول لبياناتك.
                 </p>
               </div>
             )}
