@@ -252,36 +252,38 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans selection:bg-blue-100" dir="rtl">
-      <nav className="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 px-4 h-16">
-        <div className="max-w-6xl mx-auto h-full flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center shadow-lg">
-              <ShieldCheck className="text-white" size={22} />
+      <nav className="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 px-3 sm:px-4 h-16">
+        <div className="max-w-6xl mx-auto h-full flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-slate-900 rounded-xl flex items-center justify-center shadow-lg shrink-0">
+              <ShieldCheck className="text-white" size={20} />
             </div>
-            <div>
-              <h1 className="font-bold text-sm">FocusFlow Architect</h1>
-              <span className={`text-[10px] font-bold uppercase flex items-center gap-1 ${modeBadge.cls}`}>
+            <div className="min-w-0">
+              <h1 className="font-bold text-xs sm:text-sm truncate">FocusFlow Architect</h1>
+              <span className={`text-[9px] sm:text-[10px] font-bold uppercase flex items-center gap-1 ${modeBadge.cls}`}>
                 {modeBadge.icon} {modeBadge.label} · {syncStatus === 'synced' ? 'متزامن' : 'حفظ...'}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               onClick={fetchAIAnalysis}
-              className="bg-indigo-50 text-indigo-600 p-2.5 rounded-xl hover:bg-indigo-100 border border-indigo-100 transition-all flex items-center gap-2"
+              aria-label="محلل Gemini"
+              className="bg-indigo-50 text-indigo-600 p-2 sm:p-2.5 rounded-xl hover:bg-indigo-100 border border-indigo-100 transition-all flex items-center gap-2"
             >
               <BrainCircuit size={18} /> <span className="hidden sm:inline">محلل Gemini</span>
             </button>
             <button
               onClick={() => setShowFoundationManager(true)}
-              className="text-slate-600 p-2.5 rounded-xl hover:bg-slate-50 border border-slate-100"
+              aria-label="الإعدادات"
+              className="text-slate-600 p-2 sm:p-2.5 rounded-xl hover:bg-slate-50 border border-slate-100"
             >
               <Settings size={18} />
             </button>
             <button
               onClick={() => setIsAddingTask(true)}
-              className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-blue-100"
+              className="hidden sm:inline-flex bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-blue-100"
             >
               إضافة مهمة
             </button>
@@ -289,11 +291,11 @@ const App = () => {
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-4 no-scrollbar">
+      <main className="max-w-6xl mx-auto px-3 sm:px-4 py-5 sm:py-8 pb-28 sm:pb-8">
+        <div className="flex items-center gap-2 mb-5 sm:mb-8 overflow-x-auto pb-3 sm:pb-4 no-scrollbar -mx-3 sm:mx-0 px-3 sm:px-0">
           <button
             onClick={() => setActiveContext('all')}
-            className={`px-6 py-3 rounded-2xl text-xs font-bold transition-all border whitespace-nowrap ${
+            className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-2xl text-xs font-bold transition-all border whitespace-nowrap ${
               activeContext === 'all'
                 ? 'bg-slate-900 text-white shadow-md'
                 : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
@@ -305,7 +307,7 @@ const App = () => {
             <button
               key={f.id}
               onClick={() => setActiveContext(f.id)}
-              className={`px-6 py-3 rounded-2xl text-xs font-bold whitespace-nowrap transition-all border flex items-center gap-2 shadow-sm ${
+              className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-2xl text-xs font-bold whitespace-nowrap transition-all border flex items-center gap-2 shadow-sm ${
                 activeContext === f.id
                   ? 'bg-white text-slate-900 border-slate-900 ring-4 ring-slate-900/5'
                   : 'bg-white text-slate-500 border-slate-200'
@@ -317,25 +319,25 @@ const App = () => {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div className="lg:col-span-8 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-8">
+          <div className="lg:col-span-8 space-y-4 sm:space-y-6">
             {activeFoundation && (
               <div
-                className="p-6 rounded-[2rem] border transition-all relative overflow-hidden"
+                className="p-5 sm:p-6 rounded-3xl sm:rounded-[2rem] border transition-all relative overflow-hidden"
                 style={{
                   backgroundColor: activeFoundation.color + '10',
                   borderColor: activeFoundation.color + '40',
                 }}
               >
-                <div className="flex items-center gap-4 relative z-10">
-                  <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center overflow-hidden">
-                    <RenderLogo foundation={activeFoundation} size={40} />
+                <div className="flex items-center gap-3 sm:gap-4 relative z-10">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center overflow-hidden shrink-0">
+                    <RenderLogo foundation={activeFoundation} size={36} />
                   </div>
-                  <div>
-                    <h2 className="text-2xl font-black" style={{ color: activeFoundation.color }}>
+                  <div className="min-w-0">
+                    <h2 className="text-xl sm:text-2xl font-black truncate" style={{ color: activeFoundation.color }}>
                       {activeFoundation.name}
                     </h2>
-                    <p className="text-xs text-slate-500 mt-1 font-medium">{activeFoundation.description}</p>
+                    <p className="text-xs text-slate-500 mt-1 font-medium line-clamp-2">{activeFoundation.description}</p>
                   </div>
                 </div>
                 {activeFoundation.type === 'personal' && (
@@ -348,14 +350,14 @@ const App = () => {
               </div>
             )}
 
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+            <div className="bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-2">
                 <Target size={14} className="text-blue-600" /> مرساة الأسبوع
               </label>
               <input
                 type="text"
                 placeholder="ما هو هدفك الاستراتيجي لهذا الأسبوع؟"
-                className="w-full text-xl font-bold bg-transparent border-none focus:ring-0 placeholder:text-slate-200 p-0"
+                className="w-full text-base sm:text-xl font-bold bg-transparent border-none focus:ring-0 outline-none placeholder:text-slate-200 p-0"
                 value={weeklyGoal}
                 onChange={(e) => setWeeklyGoal(e.target.value)}
               />
@@ -396,9 +398,10 @@ const App = () => {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+                    <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
                       <button
                         onClick={() => setDecisionModal(task)}
+                        aria-label="تفاصيل المهمة"
                         className="p-2 text-slate-400 hover:text-blue-600"
                       >
                         <BarChart3 size={18} />
@@ -410,8 +413,8 @@ const App = () => {
             </div>
           </div>
 
-          <div className="lg:col-span-4 space-y-6">
-            <div className="bg-white p-7 rounded-[2.5rem] border border-slate-200 shadow-sm relative overflow-hidden">
+          <div className="lg:col-span-4 space-y-4 sm:space-y-6">
+            <div className="bg-white p-5 sm:p-7 rounded-3xl sm:rounded-[2.5rem] border border-slate-200 shadow-sm relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full blur-[100px] opacity-60"></div>
               <h4 className="font-bold text-sm mb-6 flex items-center gap-2 text-slate-800">
                 <TrendingUp size={18} className="text-blue-600" /> التوازن الحالي للمشاريع
@@ -480,18 +483,19 @@ const App = () => {
 
       {showFoundationManager && (
         <div
-          className="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in"
+          className="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in"
           onClick={(e) => handleBackdropClick(e, () => setShowFoundationManager(false))}
         >
-          <div className="bg-white w-full max-w-5xl rounded-[2.5rem] shadow-2xl flex flex-col md:flex-row overflow-hidden max-h-[90vh] relative animate-in zoom-in-95">
+          <div className="bg-white w-full max-w-5xl rounded-t-3xl sm:rounded-[2.5rem] shadow-2xl flex flex-col md:flex-row overflow-hidden max-h-[92vh] sm:max-h-[90vh] relative animate-in zoom-in-95">
             <button
               onClick={() => setShowFoundationManager(false)}
-              className="absolute top-6 left-6 p-2 bg-slate-100 rounded-full z-10"
+              aria-label="إغلاق"
+              className="absolute top-4 left-4 sm:top-6 sm:left-6 p-2 bg-slate-100 rounded-full z-10"
             >
               <X size={20} />
             </button>
-            <div className="w-full md:w-[35%] bg-slate-50 p-8 border-l border-slate-200 overflow-y-auto">
-              <h3 className="font-black text-2xl mb-8">إدارة التأسيس</h3>
+            <div className="w-full md:w-[35%] bg-slate-50 p-5 sm:p-8 border-b md:border-b-0 md:border-l border-slate-200 overflow-y-auto">
+              <h3 className="font-black text-xl sm:text-2xl mb-5 sm:mb-8">إدارة التأسيس</h3>
               <div className="space-y-3">
                 {foundations.map((f) => (
                   <div
@@ -543,10 +547,10 @@ const App = () => {
               </div>
             </div>
 
-            <div className="flex-1 p-8 md:p-12 overflow-y-auto">
+            <div className="flex-1 p-5 sm:p-8 md:p-12 overflow-y-auto">
               {(editingFoundation || foundations.length === 0) && (
-                <div className="max-w-xl mx-auto space-y-8">
-                  <h3 className="font-black text-3xl">
+                <div className="max-w-xl mx-auto space-y-5 sm:space-y-8">
+                  <h3 className="font-black text-2xl sm:text-3xl">
                     {editingFoundation?.id ? 'تعديل المشروع' : 'تأسيس مشروع جديد'}
                   </h3>
                   <div className="space-y-4">
@@ -646,34 +650,35 @@ const App = () => {
 
       {showAiModal && (
         <div
-          className="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-[60] flex items-center justify-center p-4 animate-in fade-in"
+          className="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in"
           onClick={(e) => handleBackdropClick(e, () => setShowAiModal(false))}
         >
-          <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden relative flex flex-col max-h-[85vh]">
+          <div className="bg-white w-full max-w-2xl rounded-t-3xl sm:rounded-[2.5rem] shadow-2xl overflow-hidden relative flex flex-col max-h-[92vh] sm:max-h-[85vh]">
             <button
               onClick={() => setShowAiModal(false)}
-              className="absolute top-8 left-8 p-2 bg-slate-50 rounded-full z-10"
+              aria-label="إغلاق"
+              className="absolute top-4 left-4 sm:top-8 sm:left-8 p-2 bg-slate-50 rounded-full z-10"
             >
               <X size={20} />
             </button>
-            <div className="p-10 flex-1 overflow-y-auto no-scrollbar">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl">
-                  <BrainCircuit size={28} />
+            <div className="p-6 sm:p-10 flex-1 overflow-y-auto no-scrollbar">
+              <div className="flex items-center gap-3 mb-5 sm:mb-6">
+                <div className="w-11 h-11 sm:w-12 sm:h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shrink-0">
+                  <BrainCircuit size={26} />
                 </div>
-                <h2 className="text-2xl font-black">محلل Gemini الاستراتيجي</h2>
+                <h2 className="text-xl sm:text-2xl font-black">محلل Gemini الاستراتيجي</h2>
               </div>
               {isAnalyzing ? (
-                <div className="py-20 text-center font-bold text-slate-400 animate-pulse">
+                <div className="py-16 sm:py-20 text-center font-bold text-slate-400 animate-pulse text-sm sm:text-base">
                   جاري فحص مشاريع (تراحم، محور، بعد التمكين...)
                 </div>
               ) : (
-                <div className="bg-indigo-50 p-8 rounded-[2rem] border border-indigo-100 text-slate-700 leading-relaxed whitespace-pre-wrap text-sm font-medium">
+                <div className="bg-indigo-50 p-5 sm:p-8 rounded-2xl sm:rounded-[2rem] border border-indigo-100 text-slate-700 leading-relaxed whitespace-pre-wrap text-sm font-medium">
                   {aiAnalysis}
                 </div>
               )}
             </div>
-            <div className="p-8 bg-slate-50 border-t">
+            <div className="p-5 sm:p-8 bg-slate-50 border-t">
               <button
                 onClick={() => setShowAiModal(false)}
                 className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black shadow-lg"
@@ -687,20 +692,21 @@ const App = () => {
 
       {isAddingTask && (
         <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in"
           onClick={(e) => handleBackdropClick(e, () => setIsAddingTask(false))}
         >
-          <div className="bg-white w-full max-w-lg rounded-[2rem] shadow-2xl p-10 relative">
+          <div className="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-[2rem] shadow-2xl p-6 sm:p-10 relative">
             <button
               onClick={() => setIsAddingTask(false)}
-              className="absolute top-6 left-6 p-2 hover:bg-slate-50 rounded-full"
+              aria-label="إغلاق"
+              className="absolute top-4 left-4 sm:top-6 sm:left-6 p-2 hover:bg-slate-50 rounded-full"
             >
               <X size={20} />
             </button>
-            <h3 className="font-black text-2xl mb-8 flex items-center gap-2">
+            <h3 className="font-black text-xl sm:text-2xl mb-5 sm:mb-8 flex items-center gap-2">
               <Plus className="text-blue-600" /> إضافة مهمة
             </h3>
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               <input
                 autoFocus
                 className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-bold"
@@ -734,24 +740,25 @@ const App = () => {
 
       {decisionModal && (
         <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in"
           onClick={(e) => handleBackdropClick(e, () => setDecisionModal(null))}
         >
-          <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden relative">
+          <div className="bg-white w-full max-w-2xl rounded-t-3xl sm:rounded-[2.5rem] shadow-2xl overflow-hidden relative max-h-[92vh] overflow-y-auto">
             <button
               onClick={() => setDecisionModal(null)}
-              className="absolute top-8 left-8 p-2 hover:bg-slate-50 rounded-full z-10"
+              aria-label="إغلاق"
+              className="absolute top-4 left-4 sm:top-8 sm:left-8 p-2 hover:bg-slate-50 rounded-full z-10 bg-white/80 backdrop-blur-sm"
             >
               <X size={20} />
             </button>
-            <div className="p-10 md:p-12 space-y-8">
+            <div className="p-6 sm:p-10 md:p-12 space-y-5 sm:space-y-8">
               <div>
                 <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full uppercase tracking-widest">
                   تفكيك المهمة
                 </span>
-                <h2 className="text-3xl font-black text-slate-900 mt-4 leading-tight">{decisionModal.title}</h2>
+                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mt-4 leading-tight">{decisionModal.title}</h2>
               </div>
-              <div className="bg-slate-50 p-6 rounded-[2rem] space-y-4">
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] space-y-4">
                 <div className="flex gap-2">
                   <input
                     className="flex-1 p-3 bg-white border rounded-xl font-bold text-sm outline-none focus:border-blue-500"
@@ -792,13 +799,13 @@ const App = () => {
                   ))}
                 </div>
               </div>
-              <div className="flex gap-4">
+              <div className="flex gap-3 sm:gap-4">
                 <button
                   onClick={() => {
                     toggleTaskStatus(decisionModal);
                     setDecisionModal(null);
                   }}
-                  className="flex-1 bg-slate-900 text-white py-5 rounded-2xl font-black"
+                  className="flex-1 bg-slate-900 text-white py-4 sm:py-5 rounded-2xl font-black"
                 >
                   تم الإنجاز
                 </button>
@@ -807,7 +814,7 @@ const App = () => {
                     deleteTask(decisionModal.id);
                     setDecisionModal(null);
                   }}
-                  className="px-8 py-5 bg-rose-50 text-rose-600 rounded-2xl font-bold"
+                  className="px-5 sm:px-8 py-4 sm:py-5 bg-rose-50 text-rose-600 rounded-2xl font-bold"
                 >
                   حذف
                 </button>
@@ -816,6 +823,15 @@ const App = () => {
           </div>
         </div>
       )}
+
+      <button
+        onClick={() => setIsAddingTask(true)}
+        aria-label="إضافة مهمة"
+        className="sm:hidden fixed left-5 z-40 w-14 h-14 bg-blue-600 text-white rounded-full shadow-2xl shadow-blue-500/40 flex items-center justify-center active:scale-95 transition-transform"
+        style={{ bottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
+      >
+        <Plus size={26} strokeWidth={2.5} />
+      </button>
     </div>
   );
 };
