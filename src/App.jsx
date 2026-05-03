@@ -3,10 +3,39 @@ import {
   Plus, CheckCircle2, Target, BarChart3, Briefcase, Layers,
   ShieldCheck, Settings, Rocket, User, HardHat, TrendingUp,
   Edit3, X, BrainCircuit, PenTool, Image as ImageIcon, Heart, Cloud, CloudOff,
-  Key, Eye, EyeOff, Trash2, Check,
+  Key, Eye, EyeOff, Trash2, Check, Upload,
 } from 'lucide-react';
 
 const GEMINI_KEY_STORAGE = 'task-sultan:gemini-key';
+
+const readImageAsDataUrl = (file, maxSize = 256) =>
+  new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) {
+      reject(new Error('الملف ليس صورة'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('فشل قراءة الملف'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.width * ratio));
+        canvas.height = Math.max(1, Math.round(img.height * ratio));
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        try {
+          resolve(canvas.toDataURL('image/webp', 0.85));
+        } catch {
+          resolve(canvas.toDataURL('image/png'));
+        }
+      };
+      img.onerror = () => reject(new Error('صورة غير صالحة'));
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
 import {
   initAuth, subscribe, getAll, add, update, remove,
   derivePhraseUid, setIdentity, getIdentityMode, getCurrentUid, migrateData,
@@ -52,6 +81,29 @@ const App = () => {
   const [migrateExisting, setMigrateExisting] = useState(true);
   const [phraseError, setPhraseError] = useState('');
   const [phraseBusy, setPhraseBusy] = useState(false);
+
+  const [logoUploadError, setLogoUploadError] = useState('');
+  const [logoUploading, setLogoUploading] = useState(false);
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setLogoUploadError('حجم الصورة يتجاوز 5MB.');
+      return;
+    }
+    setLogoUploadError('');
+    setLogoUploading(true);
+    try {
+      const dataUrl = await readImageAsDataUrl(file, 256);
+      setFoundationForm((f) => ({ ...f, logoUrl: dataUrl }));
+    } catch (err) {
+      setLogoUploadError(err.message || 'تعذر تحميل الصورة');
+    } finally {
+      setLogoUploading(false);
+    }
+  };
 
   const refreshIdentityState = () => setIdentityModeState(getIdentityMode());
 
@@ -779,21 +831,70 @@ const App = () => {
                     </div>
                     <div className="space-y-2">
                       <label className="text-[11px] font-black text-slate-400 uppercase">
-                        رابط شعار خاص (URL) - اختياري
+                        شعار المشروع - اختياري
                       </label>
-                      <div className="flex gap-2">
-                        <div className="p-4 bg-slate-100 rounded-2xl text-slate-400">
-                          <ImageIcon size={20} />
+                      {foundationForm.logoUrl ? (
+                        <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-2xl p-3">
+                          <img
+                            src={foundationForm.logoUrl}
+                            alt="شعار المشروع"
+                            className="w-16 h-16 rounded-xl object-cover bg-white shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-bold text-slate-700">شعار محمّل</div>
+                            <div className="text-[10px] text-slate-400 mt-0.5">
+                              تم ضغط الصورة تلقائياً
+                            </div>
+                          </div>
+                          <label
+                            className={`p-2.5 bg-white border border-slate-200 rounded-lg text-blue-600 cursor-pointer ${
+                              logoUploading ? 'opacity-50 pointer-events-none' : ''
+                            }`}
+                            aria-label="تغيير الشعار"
+                          >
+                            <Upload size={16} />
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handleLogoUpload}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setFoundationForm({ ...foundationForm, logoUrl: '' })
+                            }
+                            className="p-2.5 bg-white border border-slate-200 rounded-lg text-rose-500"
+                            aria-label="حذف الشعار"
+                          >
+                            <Trash2 size={16} />
+                          </button>
                         </div>
-                        <input
-                          className="flex-1 p-4 bg-slate-50 border rounded-2xl font-mono text-xs"
-                          placeholder="https://logo-link.com/img.png"
-                          value={foundationForm.logoUrl}
-                          onChange={(e) =>
-                            setFoundationForm({ ...foundationForm, logoUrl: e.target.value })
-                          }
-                        />
-                      </div>
+                      ) : (
+                        <label
+                          className={`block w-full p-5 sm:p-6 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl text-center hover:border-blue-400 hover:bg-blue-50/40 cursor-pointer transition-colors ${
+                            logoUploading ? 'opacity-50 pointer-events-none' : ''
+                          }`}
+                        >
+                          <Upload size={22} className="mx-auto text-slate-400 mb-2" />
+                          <div className="text-xs font-bold text-slate-600">
+                            {logoUploading ? 'جاري المعالجة...' : 'اضغط لرفع صورة من جهازك'}
+                          </div>
+                          <div className="text-[10px] text-slate-400 mt-1">
+                            PNG / JPG / WEBP — حتى 5MB
+                          </div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleLogoUpload}
+                          />
+                        </label>
+                      )}
+                      {logoUploadError && (
+                        <p className="text-[11px] text-rose-600 font-bold">{logoUploadError}</p>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
