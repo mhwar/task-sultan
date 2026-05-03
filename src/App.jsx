@@ -3,7 +3,10 @@ import {
   Plus, CheckCircle2, Target, BarChart3, Briefcase, Layers,
   ShieldCheck, Settings, Rocket, User, HardHat, TrendingUp,
   Edit3, X, BrainCircuit, PenTool, Image as ImageIcon, Heart, Cloud, CloudOff,
+  Key, Eye, EyeOff, Trash2, Check,
 } from 'lucide-react';
+
+const GEMINI_KEY_STORAGE = 'task-sultan:gemini-key';
 import { initAuth, subscribe, getAll, add, update, remove } from './storage.js';
 
 const initialProjects = [
@@ -32,6 +35,30 @@ const App = () => {
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showAiModal, setShowAiModal] = useState(false);
+  const [geminiKey, setGeminiKey] = useState(
+    () => (typeof localStorage !== 'undefined' && localStorage.getItem(GEMINI_KEY_STORAGE)) || ''
+  );
+  const [keyDraft, setKeyDraft] = useState('');
+  const [showKeyEditor, setShowKeyEditor] = useState(false);
+  const [showKeyValue, setShowKeyValue] = useState(false);
+
+  const saveGeminiKey = () => {
+    const trimmed = keyDraft.trim();
+    if (!trimmed) return;
+    localStorage.setItem(GEMINI_KEY_STORAGE, trimmed);
+    setGeminiKey(trimmed);
+    setKeyDraft('');
+    setShowKeyEditor(false);
+  };
+
+  const removeGeminiKey = () => {
+    localStorage.removeItem(GEMINI_KEY_STORAGE);
+    setGeminiKey('');
+    setKeyDraft('');
+    setShowKeyEditor(false);
+  };
+
+  const maskKey = (k) => (k && k.length > 10 ? `${k.slice(0, 6)}…${k.slice(-4)}` : k);
 
   const [newTask, setNewTask] = useState({
     title: '',
@@ -183,7 +210,11 @@ const App = () => {
       const response = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, model: 'gemini-2.5-flash' }),
+        body: JSON.stringify({
+          prompt,
+          model: 'gemini-2.5-flash',
+          ...(geminiKey ? { apiKey: geminiKey } : {}),
+        }),
       });
       const result = await response.json();
       if (!response.ok) {
@@ -661,8 +692,120 @@ const App = () => {
                 <div className="w-11 h-11 sm:w-12 sm:h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shrink-0">
                   <BrainCircuit size={26} />
                 </div>
-                <h2 className="text-xl sm:text-2xl font-black">محلل Gemini الاستراتيجي</h2>
+                <h2 className="text-xl sm:text-2xl font-black flex-1">محلل Gemini الاستراتيجي</h2>
+                <button
+                  onClick={() => {
+                    setKeyDraft('');
+                    setShowKeyEditor((v) => !v);
+                  }}
+                  aria-label="مفتاح API"
+                  className={`p-2 rounded-xl border transition-all ${
+                    geminiKey
+                      ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                      : 'bg-amber-50 text-amber-600 border-amber-100'
+                  }`}
+                >
+                  <Key size={16} />
+                </button>
               </div>
+
+              <div className="mb-5 sm:mb-6">
+                {!geminiKey && !showKeyEditor && (
+                  <button
+                    onClick={() => setShowKeyEditor(true)}
+                    className="w-full bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl p-4 text-right text-xs font-bold flex items-center gap-2 hover:bg-amber-100"
+                  >
+                    <Key size={14} />
+                    لم تضف مفتاح Gemini بعد. اضغط هنا للصق مفتاحك.
+                  </button>
+                )}
+
+                {geminiKey && !showKeyEditor && (
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-3 sm:p-4 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-emerald-700 min-w-0">
+                      <Check size={14} className="shrink-0" />
+                      <span className="truncate">مفتاحك محفوظ: <span className="font-mono opacity-80">{maskKey(geminiKey)}</span></span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => {
+                          setKeyDraft(geminiKey);
+                          setShowKeyEditor(true);
+                        }}
+                        className="p-2 text-emerald-700 hover:bg-emerald-100 rounded-lg"
+                        aria-label="تعديل"
+                      >
+                        <Edit3 size={14} />
+                      </button>
+                      <button
+                        onClick={removeGeminiKey}
+                        className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg"
+                        aria-label="حذف"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {showKeyEditor && (
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+                    <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                      <Key size={12} /> مفتاح Gemini API
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        autoFocus
+                        type={showKeyValue ? 'text' : 'password'}
+                        dir="ltr"
+                        className="flex-1 p-3 bg-white border border-slate-200 rounded-xl font-mono text-xs outline-none focus:border-indigo-500 text-left"
+                        placeholder="AIza..."
+                        value={keyDraft}
+                        onChange={(e) => setKeyDraft(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && saveGeminiKey()}
+                      />
+                      <button
+                        onClick={() => setShowKeyValue((v) => !v)}
+                        className="p-3 bg-white border border-slate-200 rounded-xl text-slate-500"
+                        aria-label={showKeyValue ? 'إخفاء' : 'إظهار'}
+                      >
+                        {showKeyValue ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-500 leading-relaxed">
+                      احصل على مفتاح مجاني من{' '}
+                      <a
+                        href="https://aistudio.google.com/apikey"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-indigo-600 font-bold underline"
+                      >
+                        Google AI Studio
+                      </a>
+                      . يُحفظ في هذا المتصفح فقط ولا يُرسل إلى GitHub.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={saveGeminiKey}
+                        disabled={!keyDraft.trim()}
+                        className="flex-1 py-3 bg-indigo-600 text-white rounded-xl text-xs font-black disabled:opacity-40"
+                      >
+                        حفظ المفتاح
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowKeyEditor(false);
+                          setKeyDraft('');
+                        }}
+                        className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600"
+                      >
+                        إلغاء
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {isAnalyzing ? (
                 <div className="py-16 sm:py-20 text-center font-bold text-slate-400 animate-pulse text-sm sm:text-base">
                   جاري فحص مشاريع (تراحم، محور، بعد التمكين...)

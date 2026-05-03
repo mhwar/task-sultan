@@ -7,14 +7,6 @@ const json = (data, status = 200) =>
 export default async (req) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
-  const apiKey = Netlify.env.get('GEMINI_API_KEY');
-  if (!apiKey) {
-    return json(
-      { error: 'GEMINI_API_KEY غير معد. أضفه في Netlify Environment variables.' },
-      500
-    );
-  }
-
   let body;
   try {
     body = await req.json();
@@ -22,7 +14,15 @@ export default async (req) => {
     return json({ error: 'Invalid JSON' }, 400);
   }
 
-  const { prompt, model = 'gemini-2.5-flash' } = body || {};
+  const { prompt, model = 'gemini-2.5-flash', apiKey: clientKey } = body || {};
+  const apiKey = clientKey || Netlify.env.get('GEMINI_API_KEY');
+  if (!apiKey) {
+    return json(
+      { error: 'لا يوجد مفتاح Gemini. الصق مفتاحك في إعدادات المحلل أو أضف GEMINI_API_KEY في Netlify.' },
+      400
+    );
+  }
+
   if (!prompt || typeof prompt !== 'string') {
     return json({ error: 'Missing prompt' }, 400);
   }
