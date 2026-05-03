@@ -7,7 +7,10 @@ import {
 } from 'lucide-react';
 
 const GEMINI_KEY_STORAGE = 'task-sultan:gemini-key';
-import { initAuth, subscribe, getAll, add, update, remove } from './storage.js';
+import {
+  initAuth, subscribe, getAll, add, update, remove,
+  derivePhraseUid, setIdentity, getIdentityMode, getCurrentUid, migrateData,
+} from './storage.js';
 
 const initialProjects = [
   { name: 'تراحم', description: 'الدوام الرسمي - التركيز على المهام المؤسسية والعمل الخيري.', type: 'job', weeklyHours: 40, color: '#10B981', icon: 'Briefcase', incomePotential: 8, strategicValue: 6, effortLevel: 7 },
@@ -41,6 +44,63 @@ const App = () => {
   const [keyDraft, setKeyDraft] = useState('');
   const [showKeyEditor, setShowKeyEditor] = useState(false);
   const [showKeyValue, setShowKeyValue] = useState(false);
+
+  const [identityMode, setIdentityModeState] = useState('random');
+  const [phraseEditor, setPhraseEditor] = useState(false);
+  const [phraseDraft, setPhraseDraft] = useState('');
+  const [phraseConfirm, setPhraseConfirm] = useState('');
+  const [migrateExisting, setMigrateExisting] = useState(true);
+  const [phraseError, setPhraseError] = useState('');
+  const [phraseBusy, setPhraseBusy] = useState(false);
+
+  const refreshIdentityState = () => setIdentityModeState(getIdentityMode());
+
+  const applyPhrase = async () => {
+    setPhraseError('');
+    if (phraseDraft.trim().length < 6) {
+      setPhraseError('استخدم عبارة لا تقل عن 6 أحرف.');
+      return;
+    }
+    if (phraseDraft !== phraseConfirm) {
+      setPhraseError('العبارتان غير متطابقتين.');
+      return;
+    }
+    setPhraseBusy(true);
+    try {
+      const newUid = await derivePhraseUid(phraseDraft);
+      const oldUid = user?.uid;
+      if (migrateExisting && oldUid && oldUid !== newUid) {
+        await migrateData(oldUid, newUid);
+      }
+      setIdentity(newUid, 'phrase');
+      setTasks([]);
+      setFoundations([]);
+      setUser({ uid: newUid });
+      setIdentityModeState('phrase');
+      setPhraseDraft('');
+      setPhraseConfirm('');
+      setPhraseEditor(false);
+      setShowFoundationManager(false);
+    } catch (err) {
+      setPhraseError(err.message || 'خطأ غير متوقع');
+    } finally {
+      setPhraseBusy(false);
+    }
+  };
+
+  const resetToRandomIdentity = () => {
+    if (!confirm('سيُنشأ هوية عشوائية جديدة في هذا المتصفح. بياناتك الحالية المرتبطة بالعبارة ستبقى محفوظة (تُسترجع بإدخال العبارة مجدداً). متابعة؟')) {
+      return;
+    }
+    const newUid = crypto.randomUUID
+      ? `u-${crypto.randomUUID()}`
+      : `u-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    setIdentity(newUid, 'random');
+    setTasks([]);
+    setFoundations([]);
+    setUser({ uid: newUid });
+    setIdentityModeState('random');
+  };
 
   const saveGeminiKey = () => {
     const trimmed = keyDraft.trim();
@@ -87,6 +147,7 @@ const App = () => {
     const unsub = initAuth((u, m) => {
       setUser(u);
       if (m) setMode(m);
+      refreshIdentityState();
     });
     return () => unsub();
   }, []);
@@ -521,6 +582,109 @@ const App = () => {
               <X size={20} />
             </button>
             <div className="w-full md:w-[35%] bg-slate-50 p-5 sm:p-8 border-b md:border-b-0 md:border-l border-slate-200 overflow-y-auto">
+              {mode !== 'firebase' && (
+                <div className="mb-6 pb-6 border-b border-slate-200">
+                  <h4 className="font-black text-sm mb-3 flex items-center gap-2">
+                    <Key size={14} className="text-indigo-600" /> هويتك ومزامنة الأجهزة
+                  </h4>
+
+                  {identityMode === 'random' && !phraseEditor && (
+                    <div className="bg-amber-50 border border-amber-100 rounded-2xl p-3.5">
+                      <p className="text-[11px] text-amber-800 leading-relaxed font-medium mb-3">
+                        هويتك حالياً عشوائية ومحلية لهذا المتصفح. لمزامنة بياناتك على أجهزة أخرى، فعّل عبارة سرية.
+                      </p>
+                      <button
+                        onClick={() => setPhraseEditor(true)}
+                        className="w-full py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-black"
+                      >
+                        تفعيل عبارة المزامنة
+                      </button>
+                    </div>
+                  )}
+
+                  {identityMode === 'phrase' && !phraseEditor && (
+                    <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-3.5 space-y-3">
+                      <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-700">
+                        <Check size={14} />
+                        مزامنة الأجهزة مفعّلة بعبارة سرية
+                      </div>
+                      <p className="text-[10px] text-emerald-700 opacity-80 leading-relaxed">
+                        افتح الموقع على جهاز آخر وفعّل المزامنة بنفس العبارة لاسترجاع بياناتك.
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setPhraseEditor(true)}
+                          className="flex-1 py-2 bg-white border border-emerald-200 text-emerald-700 rounded-lg text-[11px] font-bold"
+                        >
+                          تغيير العبارة
+                        </button>
+                        <button
+                          onClick={resetToRandomIdentity}
+                          className="px-3 py-2 bg-white border border-rose-200 text-rose-600 rounded-lg text-[11px] font-bold"
+                        >
+                          إيقاف
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {phraseEditor && (
+                    <div className="bg-white border border-slate-200 rounded-2xl p-3.5 space-y-3">
+                      <input
+                        autoFocus
+                        type="password"
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-indigo-500"
+                        placeholder="عبارة سرية لا تنسى..."
+                        value={phraseDraft}
+                        onChange={(e) => setPhraseDraft(e.target.value)}
+                      />
+                      <input
+                        type="password"
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-indigo-500"
+                        placeholder="أعد كتابة العبارة..."
+                        value={phraseConfirm}
+                        onChange={(e) => setPhraseConfirm(e.target.value)}
+                      />
+                      <label className="flex items-center gap-2 text-[11px] font-bold text-slate-600">
+                        <input
+                          type="checkbox"
+                          checked={migrateExisting}
+                          onChange={(e) => setMigrateExisting(e.target.checked)}
+                          className="w-4 h-4 accent-indigo-600"
+                        />
+                        نقل بياناتي الحالية إلى هذه العبارة
+                      </label>
+                      {phraseError && (
+                        <p className="text-[11px] text-rose-600 font-bold">{phraseError}</p>
+                      )}
+                      <p className="text-[10px] text-slate-500 leading-relaxed">
+                        تنبيه: نسيان العبارة يعني فقدان الوصول لبياناتك. لا تُحفظ العبارة في أي مكان — فقط البصمة المشتقة منها.
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={applyPhrase}
+                          disabled={phraseBusy}
+                          className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-black disabled:opacity-50"
+                        >
+                          {phraseBusy ? 'جاري التطبيق...' : 'تفعيل'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPhraseEditor(false);
+                            setPhraseDraft('');
+                            setPhraseConfirm('');
+                            setPhraseError('');
+                          }}
+                          className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600"
+                        >
+                          إلغاء
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <h3 className="font-black text-xl sm:text-2xl mb-5 sm:mb-8">إدارة التأسيس</h3>
               <div className="space-y-3">
                 {foundations.map((f) => (

@@ -7,10 +7,37 @@ import { auth, db, appId, missingEnvKeys, firebaseInitError } from './firebase.j
 const hasFirebase = missingEnvKeys.length === 0 && !firebaseInitError;
 const NETLIFY_ENDPOINT = '/api/data';
 const LOCAL_UID_KEY = 'task-sultan:uid';
+const IDENTITY_MODE_KEY = 'task-sultan:identity-mode';
 const POLL_INTERVAL = 8000;
 
 let mode = hasFirebase ? 'firebase' : 'local';
 export const getMode = () => mode;
+
+export const getIdentityMode = () => {
+  if (mode === 'firebase') return 'firebase';
+  return localStorage.getItem(IDENTITY_MODE_KEY) || 'random';
+};
+
+export const getCurrentUid = () => {
+  if (mode === 'firebase') return null;
+  return localStorage.getItem(LOCAL_UID_KEY) || '';
+};
+
+export const setIdentity = (uid, identityMode) => {
+  localStorage.setItem(LOCAL_UID_KEY, uid);
+  localStorage.setItem(IDENTITY_MODE_KEY, identityMode);
+};
+
+export const derivePhraseUid = async (phrase) => {
+  const normalized = phrase.trim().toLowerCase().replace(/\s+/g, ' ');
+  if (!normalized) throw new Error('عبارة فارغة');
+  const data = new TextEncoder().encode(`task-sultan:v1:${normalized}`);
+  const buf = await crypto.subtle.digest('SHA-256', data);
+  const hex = Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+  return `p-${hex.slice(0, 32)}`;
+};
 
 const getOrCreateLocalUid = () => {
   let uid = localStorage.getItem(LOCAL_UID_KEY);
@@ -201,4 +228,18 @@ export const remove = async (uid, coll, id) => {
   const items = readLocal(uid, coll).filter((it) => it.id !== id);
   writeLocal(uid, coll, items);
   notifyLocal(uid, coll);
+};
+
+export const migrateData = async (fromUid, toUid, collections = ['tasks', 'foundations']) => {
+  if (fromUid === toUid) return { copied: 0 };
+  let copied = 0;
+  for (const coll of collections) {
+    const items = await getAll(fromUid, coll);
+    for (const item of items) {
+      const { id, ...data } = item;
+      await add(toUid, coll, data);
+      copied += 1;
+    }
+  }
+  return { copied };
 };
