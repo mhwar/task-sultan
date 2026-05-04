@@ -3,10 +3,33 @@ import {
   Plus, CheckCircle2, Target, BarChart3, Briefcase, Layers,
   ShieldCheck, Settings, Rocket, User, HardHat, TrendingUp,
   Edit3, X, BrainCircuit, PenTool, Image as ImageIcon, Heart, Cloud, CloudOff,
-  Key, Eye, EyeOff, Trash2, Check, Upload,
+  Key, Eye, EyeOff, Trash2, Check, Upload, ChevronDown, ChevronUp,
+  Droplet, Activity, Wind, BookOpen, Moon, Phone, Coffee, Sun, Sparkles, Battery,
 } from 'lucide-react';
 
 const GEMINI_KEY_STORAGE = 'task-sultan:gemini-key';
+
+const PERSONAL_RITUALS = [
+  { label: 'كوب ماء', icon: Droplet, energy: 'low', impact: 4, difficulty: 1 },
+  { label: 'مشي 10 دقائق', icon: Activity, energy: 'low', impact: 6, difficulty: 2 },
+  { label: 'تنفس عميق دقيقة', icon: Wind, energy: 'low', impact: 5, difficulty: 1 },
+  { label: 'قراءة 10 صفحات', icon: BookOpen, energy: 'medium', impact: 7, difficulty: 3 },
+  { label: 'اتصال عائلي', icon: Phone, energy: 'low', impact: 7, difficulty: 1 },
+  { label: 'نوم مبكر الليلة', icon: Moon, energy: 'low', impact: 9, difficulty: 4 },
+  { label: 'إيقاف الشاشات قبل النوم', icon: Sun, energy: 'low', impact: 8, difficulty: 4 },
+  { label: 'تأمل 5 دقائق', icon: Sparkles, energy: 'low', impact: 6, difficulty: 2 },
+];
+
+const isToday = (iso) => {
+  if (!iso) return false;
+  const d = new Date(iso);
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+};
 
 const extractDominantColor = (canvas) => {
   try {
@@ -126,6 +149,61 @@ const App = () => {
 
   const [logoUploadError, setLogoUploadError] = useState('');
   const [logoUploading, setLogoUploading] = useState(false);
+
+  const [expandedIds, setExpandedIds] = useState(() => new Set());
+  const [inlineDrafts, setInlineDrafts] = useState({});
+
+  const toggleExpand = (id) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const setInlineDraft = (id, val) =>
+    setInlineDrafts((prev) => ({ ...prev, [id]: val }));
+
+  const addInlineSubTask = async (task) => {
+    const draft = (inlineDrafts[task.id] || '').trim();
+    if (!draft || !user) return;
+    const updatedSubtasks = [
+      ...(task.subtasks || []),
+      { id: Date.now(), title: draft, done: false },
+    ];
+    await update(user.uid, 'tasks', task.id, { subtasks: updatedSubtasks });
+    setInlineDraft(task.id, '');
+  };
+
+  const toggleInlineSubTask = async (task, subId) => {
+    const updated = (task.subtasks || []).map((st) =>
+      st.id === subId ? { ...st, done: !st.done } : st
+    );
+    await update(user.uid, 'tasks', task.id, { subtasks: updated });
+  };
+
+  const removeInlineSubTask = async (task, subId) => {
+    const updated = (task.subtasks || []).filter((st) => st.id !== subId);
+    await update(user.uid, 'tasks', task.id, { subtasks: updated });
+  };
+
+  const addRitualTask = async (ritual) => {
+    if (!user || !activeFoundation || activeFoundation.type !== 'personal') return;
+    await add(user.uid, 'tasks', {
+      title: ritual.label,
+      foundationId: activeFoundation.id,
+      type: 'personal',
+      energy: ritual.energy,
+      impact: ritual.impact,
+      difficulty: ritual.difficulty,
+      subtasks: [],
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      score: ritual.impact * 2 - ritual.difficulty,
+      ritual: true,
+    });
+  };
 
   const handleLogoUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -428,6 +506,14 @@ const App = () => {
 
   const activeFoundation = foundations.find((f) => f.id === activeContext);
 
+  const personalStats = useMemo(() => {
+    const personalIds = new Set(foundations.filter((f) => f.type === 'personal').map((f) => f.id));
+    const personalTasks = tasks.filter((t) => personalIds.has(t.foundationId));
+    const todayDone = personalTasks.filter((t) => t.status === 'done' && isToday(t.createdAt)).length;
+    const todayTotal = personalTasks.filter((t) => isToday(t.createdAt)).length;
+    return { todayDone, todayTotal };
+  }, [tasks, foundations]);
+
   const modeBadge =
     mode === 'firebase'
       ? { icon: <Cloud size={11} />, label: 'Firebase', cls: 'text-emerald-600' }
@@ -518,18 +604,50 @@ const App = () => {
                   <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center overflow-hidden shrink-0">
                     <RenderLogo foundation={activeFoundation} size={36} />
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <h2 className="text-xl sm:text-2xl font-black truncate" style={{ color: activeFoundation.color }}>
                       {activeFoundation.name}
                     </h2>
                     <p className="text-xs text-slate-500 mt-1 font-medium line-clamp-2">{activeFoundation.description}</p>
                   </div>
+                  {activeFoundation.type === 'personal' && (
+                    <div className="hidden sm:flex flex-col items-end gap-1 shrink-0">
+                      <div className="flex items-center gap-1.5 text-rose-600 font-black text-sm">
+                        <Heart size={16} className="fill-rose-500 text-rose-500" />
+                        {personalStats.todayDone}
+                        <span className="text-rose-300 font-bold">/{Math.max(personalStats.todayTotal, personalStats.todayDone)}</span>
+                      </div>
+                      <span className="text-[9px] text-rose-400 font-bold uppercase">إنجازات اليوم</span>
+                    </div>
+                  )}
                 </div>
+
                 {activeFoundation.type === 'personal' && (
-                  <div className="mt-4 flex gap-2">
-                    <span className="text-[10px] bg-rose-100 text-rose-600 px-3 py-1 rounded-full font-bold">
-                      مساحة الهدوء والتطوير
-                    </span>
+                  <div className="mt-5 space-y-3 relative z-10">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest flex items-center gap-1.5">
+                        <Sparkles size={12} /> طقوس سريعة
+                      </span>
+                      <span className="sm:hidden text-[11px] text-rose-600 font-black flex items-center gap-1">
+                        <Heart size={12} className="fill-rose-500 text-rose-500" />
+                        {personalStats.todayDone} اليوم
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {PERSONAL_RITUALS.slice(0, 8).map((r) => {
+                        const Icon = r.icon;
+                        return (
+                          <button
+                            key={r.label}
+                            onClick={() => addRitualTask(r)}
+                            className="flex items-center gap-2 bg-white/80 hover:bg-white border border-rose-100 hover:border-rose-300 px-3 py-2.5 rounded-xl text-[11px] font-bold text-rose-700 text-right transition-all active:scale-95"
+                          >
+                            <Icon size={14} className="shrink-0 text-rose-500" />
+                            <span className="truncate">{r.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -548,54 +666,139 @@ const App = () => {
               />
             </div>
 
-            <div className="space-y-3">
-              {filteredTasks.length === 0 && (
-                <div className="bg-white p-10 rounded-3xl border border-dashed border-slate-200 text-center text-slate-400 text-sm font-bold">
-                  لا توجد مهام بعد. اضغط "إضافة مهمة" للبدء.
-                </div>
-              )}
-              {filteredTasks.map((task) => {
-                const foundation = foundations.find((f) => f.id === task.foundationId);
-                return (
-                  <div
-                    key={task.id}
-                    className={`bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between group transition-all hover:shadow-md ${
-                      task.status === 'done' ? 'opacity-40 grayscale' : ''
-                    }`}
-                  >
-                    <div className="flex items-center gap-4 flex-1">
-                      <button
-                        onClick={() => toggleTaskStatus(task)}
-                        className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all ${
-                          task.status === 'done'
-                            ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-100'
-                            : 'border-slate-200 hover:border-blue-500'
-                        }`}
-                      >
-                        <CheckCircle2 size={16} />
-                      </button>
-                      <div className="flex-1">
-                        <h4 className="font-bold text-slate-800">{task.title}</h4>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-50 text-slate-400 font-bold border border-slate-100 flex items-center gap-1">
-                            <RenderLogo foundation={foundation} size={10} /> {foundation?.name || 'عام'}
-                          </span>
+            {filteredTasks.length === 0 ? (
+              <div className="bg-white p-10 rounded-3xl border border-dashed border-slate-200 text-center text-slate-400 text-sm font-bold">
+                لا توجد مهام بعد. اضغط "إضافة مهمة" للبدء.
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                {filteredTasks.map((task, idx) => {
+                  const foundation = foundations.find((f) => f.id === task.foundationId);
+                  const subs = task.subtasks || [];
+                  const subDone = subs.filter((s) => s.done).length;
+                  const isExpanded = expandedIds.has(task.id);
+                  const isDone = task.status === 'done';
+                  return (
+                    <div key={task.id}>
+                      {idx > 0 && <div className="border-t border-slate-100 mx-4" />}
+                      <div className={`group transition-colors ${isDone ? 'opacity-50' : ''}`}>
+                        <div className="flex items-stretch">
+                          <span
+                            className="w-1 shrink-0 self-stretch"
+                            style={{ backgroundColor: foundation?.color || '#cbd5e1' }}
+                          />
+                          <div className="flex items-center gap-3 flex-1 min-w-0 px-3 sm:px-4 py-3">
+                            <button
+                              onClick={() => toggleTaskStatus(task)}
+                              aria-label={isDone ? 'إلغاء الإنجاز' : 'إنجاز'}
+                              className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ${
+                                isDone
+                                  ? 'bg-emerald-500 border-emerald-500 text-white shadow-md shadow-emerald-100'
+                                  : 'border-slate-200 hover:border-blue-500'
+                              }`}
+                            >
+                              {isDone && <CheckCircle2 size={14} />}
+                            </button>
+
+                            <button
+                              onClick={() => subs.length > 0 && toggleExpand(task.id)}
+                              className="flex-1 min-w-0 text-right cursor-pointer"
+                            >
+                              <h4 className={`font-bold text-sm text-slate-800 truncate ${isDone ? 'line-through' : ''}`}>
+                                {task.title}
+                              </h4>
+                              <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400 font-bold">
+                                <span className="flex items-center gap-1 truncate">
+                                  <RenderLogo foundation={foundation} size={10} />
+                                  <span className="truncate">{foundation?.name || 'عام'}</span>
+                                </span>
+                                {subs.length > 0 && (
+                                  <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-50 border border-slate-100">
+                                    <CheckCircle2 size={9} className={subDone === subs.length ? 'text-emerald-500' : 'text-slate-400'} />
+                                    {subDone}/{subs.length}
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+
+                            <div className="flex items-center gap-0.5 shrink-0">
+                              {subs.length > 0 && (
+                                <button
+                                  onClick={() => toggleExpand(task.id)}
+                                  aria-label={isExpanded ? 'طي' : 'توسيع'}
+                                  className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-50 rounded-lg"
+                                >
+                                  {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                </button>
+                              )}
+                              <button
+                                onClick={() => setDecisionModal(task)}
+                                aria-label="تفاصيل المهمة"
+                                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-50 rounded-lg"
+                              >
+                                <BarChart3 size={16} />
+                              </button>
+                            </div>
+                          </div>
                         </div>
+
+                        {isExpanded && (
+                          <div className="bg-slate-50/60 px-4 sm:px-5 pb-3 pt-1 mr-1 space-y-1.5 animate-in fade-in">
+                            {subs.map((st) => (
+                              <div
+                                key={st.id}
+                                className="flex items-center gap-2.5 group/sub py-1"
+                              >
+                                <button
+                                  onClick={() => toggleInlineSubTask(task, st.id)}
+                                  className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all shrink-0 ${
+                                    st.done
+                                      ? 'bg-emerald-500 border-emerald-500 text-white'
+                                      : 'border-slate-300 hover:border-emerald-400'
+                                  }`}
+                                >
+                                  {st.done && <Check size={10} />}
+                                </button>
+                                <span
+                                  className={`text-xs font-medium flex-1 ${
+                                    st.done ? 'line-through text-slate-300' : 'text-slate-600'
+                                  }`}
+                                >
+                                  {st.title}
+                                </span>
+                                <button
+                                  onClick={() => removeInlineSubTask(task, st.id)}
+                                  className="opacity-0 group-hover/sub:opacity-100 sm:opacity-0 p-1 text-slate-300 hover:text-rose-500"
+                                  aria-label="حذف"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </div>
+                            ))}
+                            <div className="flex gap-2 pt-1">
+                              <input
+                                value={inlineDrafts[task.id] || ''}
+                                onChange={(e) => setInlineDraft(task.id, e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && addInlineSubTask(task)}
+                                placeholder="أضف خطوة فرعية..."
+                                className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium outline-none focus:border-blue-500"
+                              />
+                              <button
+                                onClick={() => addInlineSubTask(task)}
+                                className="px-3 py-2 bg-slate-900 text-white rounded-lg"
+                                aria-label="إضافة"
+                              >
+                                <Plus size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
-                      <button
-                        onClick={() => setDecisionModal(task)}
-                        aria-label="تفاصيل المهمة"
-                        className="p-2 text-slate-400 hover:text-blue-600"
-                      >
-                        <BarChart3 size={18} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="lg:col-span-4 space-y-4 sm:space-y-6">
